@@ -20,7 +20,7 @@ public class SecurityScanner : IScanModule
     private readonly ILogger<SecurityScanner> _logger;
 
     public string ModuleName => "SecurityScanner";
-    public string ModuleIcon => "🔒";
+    public string ModuleIcon => "*";
     public int EstimatedSeconds => 12;
     public ScanMode ApplicableModes => ScanMode.Full | ScanMode.Quick;
 

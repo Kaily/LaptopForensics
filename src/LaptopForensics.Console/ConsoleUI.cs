@@ -9,6 +9,13 @@ namespace LaptopForensics.Console;
 public class ConsoleUI : IScanProgressObserver
 {
     private readonly ProgressTracker _tracker = new();
+    private ProgressContext? _progressContext;
+    private ProgressTask? _mainTask;
+
+    public void SetProgressContext(ProgressContext? context)
+    {
+        _progressContext = context;
+    }
 
     public void ShowBanner()
     {
@@ -73,11 +80,20 @@ public class ConsoleUI : IScanProgressObserver
     {
         _tracker.Start(totalModules);
         ShowScanStarting(mode, totalModules);
+        
+        if (_progressContext != null)
+        {
+            _mainTask = _progressContext.AddTask($"[green]Initializing {mode} Scan...[/]", maxValue: totalModules);
+        }
     }
 
     public void OnModuleStarted(string moduleName, string icon, int estimatedSeconds)
     {
-        AnsiConsole.Markup($"[grey]>[/] {icon} Running [white]{moduleName}[/]... ");
+        if (_mainTask != null)
+        {
+            _mainTask.Description = $"[cyan]{icon} Running {moduleName}...[/]";
+        }
+        AnsiConsole.MarkupLine($"[grey]>[/] {icon} Running [white]{moduleName}[/]... ");
     }
 
     public void OnModuleCompleted(string moduleName, ModuleResult result)
@@ -85,18 +101,33 @@ public class ConsoleUI : IScanProgressObserver
         _tracker.Increment();
         var eta = _tracker.FormatEta(_tracker.CalculateEta());
 
+        if (_mainTask != null)
+        {
+            _mainTask.Increment(1);
+        }
+
+        var durationStr = FormatDuration(result.DurationMs);
+
         if (result.Success)
         {
             var findings = result.Findings.Count > 0 
                 ? $"[red]{result.Findings.Count} findings[/]" 
                 : "[green]Clean[/]";
             
-            AnsiConsole.MarkupLine($"[green]DONE[/] ({result.DurationMs}ms) - {findings} - [grey]{eta}[/]");
+            AnsiConsole.MarkupLine($"[green]DONE[/] ({durationStr}) - {findings} - [grey]{eta}[/]");
         }
         else
         {
-            AnsiConsole.MarkupLine($"[red]FAILED[/] ({result.DurationMs}ms) - {result.ErrorMessage} - [grey]{eta}[/]");
+            AnsiConsole.MarkupLine($"[red]FAILED[/] ({durationStr}) - {result.ErrorMessage} - [grey]{eta}[/]");
         }
+    }
+
+    private string FormatDuration(long ms)
+    {
+        var ts = TimeSpan.FromMilliseconds(ms);
+        if (ts.TotalSeconds < 60)
+            return $"{ts.TotalSeconds:F2}s";
+        return $"{(int)ts.TotalMinutes}m {ts.Seconds}s";
     }
 
     public void OnScanCompleted(ScanReport report)

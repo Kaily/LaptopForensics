@@ -12,7 +12,7 @@ public class HardwareScanner : IScanModule
     }
 
     public string ModuleName => "HardwareScanner";
-    public string ModuleIcon => "\ud83d\udda5\ufe0f";
+    public string ModuleIcon => "*";
     public int EstimatedSeconds => 8;
     public ScanMode ApplicableModes => ScanMode.Full | ScanMode.Quick;
 

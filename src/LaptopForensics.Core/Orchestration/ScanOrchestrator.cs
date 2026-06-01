@@ -74,10 +74,8 @@ public class ScanOrchestrator
 
             try
             {
-                _observer.OnModuleStarted(module.ModuleName, "⚙️", 10);
                 var result = await module.ExecuteAsync(ct);
                 report.Results[module.ModuleName] = result;
-                _observer.OnModuleCompleted(module.ModuleName, result);
             }
             catch (Exception ex)
             {

@@ -18,7 +18,7 @@ public class UserScanner : IScanModule
     }
 
     public string ModuleName => "UserScanner";
-    public string ModuleIcon => "\ud83d\udc64";
+    public string ModuleIcon => "*";
     public int EstimatedSeconds => 10;
     public ScanMode ApplicableModes => ScanMode.Full | ScanMode.Quick;
 

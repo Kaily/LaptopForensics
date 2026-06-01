@@ -120,7 +120,7 @@ public class Program
                 AnsiConsole.MarkupLine($"[cyan]Running in Watch Mode. Interval: {watchIntervalMin} minutes. Press Ctrl+C to stop.[/]");
                 while (!cts.IsCancellationRequested)
                 {
-                    var report = await orchestrator.RunAsync(mode, moduleName, cts.Token);
+                    var report = await RunWithProgressAsync(orchestrator, mode, moduleName, cts.Token, ui, isSilent);
                     var exporters = serviceProvider.GetServices<IExporter>();
                     if (!System.IO.Directory.Exists(outputPath))
                     {
@@ -142,7 +142,7 @@ public class Program
             }
             else
             {
-                var report = await orchestrator.RunAsync(mode, moduleName, cts.Token);
+                var report = await RunWithProgressAsync(orchestrator, mode, moduleName, cts.Token, ui, isSilent);
                 var exporters = serviceProvider.GetServices<IExporter>();
                 if (!System.IO.Directory.Exists(outputPath))
                 {
@@ -168,6 +168,41 @@ public class Program
         {
             Log.CloseAndFlush();
         }
+    }
+
+    private static async Task<ScanReport> RunWithProgressAsync(
+        ScanOrchestrator orchestrator, 
+        ScanMode mode, 
+        string? moduleName, 
+        CancellationToken token,
+        ConsoleUI ui,
+        bool isSilent)
+    {
+        if (isSilent)
+        {
+            return await orchestrator.RunAsync(mode, moduleName, token);
+        }
+
+        ScanReport report = null!;
+        await AnsiConsole.Progress()
+            .AutoClear(false)
+            .HideCompleted(false)
+            .Columns(new ProgressColumn[] 
+            {
+                new TaskDescriptionColumn(),
+                new ProgressBarColumn(),
+                new PercentageColumn(),
+                new ElapsedTimeColumn(),
+                new SpinnerColumn(),
+            })
+            .StartAsync(async ctx => 
+            {
+                ui.SetProgressContext(ctx);
+                report = await orchestrator.RunAsync(mode, moduleName, token);
+                ui.SetProgressContext(null);
+            });
+
+        return report;
     }
 
     private static string? GetArgValue(string[] args, string name)

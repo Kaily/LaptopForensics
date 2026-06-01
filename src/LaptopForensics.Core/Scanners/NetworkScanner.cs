@@ -21,7 +21,7 @@ public class NetworkScanner : IScanModule
     private readonly ILogger<NetworkScanner> _logger;
 
     public string ModuleName => "NetworkScanner";
-    public string ModuleIcon => "🌐";
+    public string ModuleIcon => "*";
     public int EstimatedSeconds => 12;
     public ScanMode ApplicableModes => ScanMode.Full;
 

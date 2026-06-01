@@ -18,7 +18,7 @@ public class BrowserScanner : IScanModule
     private readonly ILogger<BrowserScanner> _logger;
 
     public string ModuleName => "BrowserScanner";
-    public string ModuleIcon => "🌐";
+    public string ModuleIcon => "*";
     public int EstimatedSeconds => 5;
     public ScanMode ApplicableModes => ScanMode.Full | ScanMode.Quick;
 

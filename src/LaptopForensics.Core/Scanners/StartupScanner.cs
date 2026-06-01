@@ -21,7 +21,7 @@ public class StartupScanner : IScanModule
     private readonly ILogger<StartupScanner> _logger;
 
     public string ModuleName => "StartupScanner";
-    public string ModuleIcon => "🚀";
+    public string ModuleIcon => "*";
     public int EstimatedSeconds => 8;
     public ScanMode ApplicableModes => ScanMode.Full | ScanMode.Quick;
 

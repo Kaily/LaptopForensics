@@ -18,7 +18,7 @@ public class PerformanceScanner : IScanModule
     private readonly ILogger<PerformanceScanner> _logger;
 
     public string ModuleName => "PerformanceScanner";
-    public string ModuleIcon => "⚡";
+    public string ModuleIcon => "*";
     public int EstimatedSeconds => 6;
     public ScanMode ApplicableModes => ScanMode.Full | ScanMode.Quick;
 

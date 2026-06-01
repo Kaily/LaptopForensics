@@ -19,7 +19,7 @@ public class LicenseAuditor : IScanModule
     private readonly ILogger<LicenseAuditor> _logger;
 
     public string ModuleName => "LicenseAuditor";
-    public string ModuleIcon => "📋";
+    public string ModuleIcon => "*";
     public int EstimatedSeconds => 10;
     public ScanMode ApplicableModes => ScanMode.Full;
 

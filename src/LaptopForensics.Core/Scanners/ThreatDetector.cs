@@ -20,7 +20,7 @@ public class ThreatDetector : IScanModule
     private readonly ILogger<ThreatDetector> _logger;
 
     public string ModuleName => "ThreatDetector";
-    public string ModuleIcon => "🛡️";
+    public string ModuleIcon => "*";
     public int EstimatedSeconds => 5;
     public ScanMode ApplicableModes => ScanMode.Full | ScanMode.Quick;
 

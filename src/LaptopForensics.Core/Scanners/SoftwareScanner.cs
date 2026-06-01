@@ -18,7 +18,7 @@ public class SoftwareScanner : IScanModule
     private readonly ILogger<SoftwareScanner> _logger;
 
     public string ModuleName => "SoftwareScanner";
-    public string ModuleIcon => "📦";
+    public string ModuleIcon => "*";
     public int EstimatedSeconds => 8;
     public ScanMode ApplicableModes => ScanMode.Full | ScanMode.Quick;
 

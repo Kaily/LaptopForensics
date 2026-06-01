@@ -191,20 +191,51 @@ public class StartupScanner : IScanModule
             }
 
             // 5. Score and findings
-            int suspiciousCount = resultData.Count(x => x.IsSuspicious);
-            int bloatwareCount = resultData.Count(x => x.Category == StartupCategory.Bloatware);
+            var suspiciousItems = resultData.Where(x => x.IsSuspicious).ToList();
+            var bloatwareItems = resultData.Where(x => x.Category == StartupCategory.Bloatware).ToList();
             
-            if (suspiciousCount > 0)
+            foreach (var item in suspiciousItems)
             {
-                score -= suspiciousCount * 10;
-                findings.Add(new Finding { Level = Severity.Critical, Title = "Suspicious startup items", Description = $"Found {suspiciousCount} suspicious items in startup.", Recommendation = "Investigate and remove suspicious startup items." });
+                score -= 10;
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Executable", item.Command },
+                    { "Location", item.Location },
+                    { "Suspicion", "Command runs from a suspicious path or uses suspicious arguments." },
+                    { "Action", item.Location.StartsWith("HK") ? $"reg delete \"{item.Location}\" /v \"{item.Name}\" /f" : $"Remove file: {item.Command}" }
+                };
+
+                findings.Add(new Finding 
+                { 
+                    Level = Severity.Critical, 
+                    Title = $"Suspicious Auto-start item: \"{item.Name}\"", 
+                    Description = "Found suspicious startup mechanism.", 
+                    Recommendation = "Remove this entry to prevent persistent malicious execution.",
+                    Confidence = ConfidenceLevel.High,
+                    Evidence = evidence
+                });
             }
 
-            if (bloatwareCount > 0)
+            foreach (var item in bloatwareItems)
             {
-                int bloatDeduction = Math.Min(bloatwareCount * 5, 20);
-                score -= bloatDeduction;
-                findings.Add(new Finding { Level = Severity.Warning, Title = "Bloatware in startup", Description = $"Found {bloatwareCount} bloatware items launching at startup.", Recommendation = "Disable unnecessary startup applications." });
+                score -= 5;
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Executable", item.Command },
+                    { "Location", item.Location },
+                    { "Suspicion", "Known bloatware consuming system resources." },
+                    { "Action", "Disable via Task Manager Startup tab or uninstall the software." }
+                };
+
+                findings.Add(new Finding 
+                { 
+                    Level = Severity.Warning, 
+                    Title = $"Bloatware Auto-start item: \"{item.Name}\"", 
+                    Description = "Bloatware launching at startup.", 
+                    Recommendation = "Disable unnecessary startup applications to improve performance.",
+                    Confidence = ConfidenceLevel.Medium,
+                    Evidence = evidence
+                });
             }
 
             if (resultData.Count > 30)

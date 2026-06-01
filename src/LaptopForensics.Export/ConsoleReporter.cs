@@ -54,10 +54,26 @@ public class ConsoleReporter : IExporter, IScanProgressObserver
             var res = kvp.Value;
             if (res.Findings.Count == 0) continue;
 
-            var topFindings = res.Findings.OrderByDescending(f => f.Level).Take(3);
-            var content = string.Join("\n", topFindings.Select(f => $"- [{GetSeverityColor(f.Level)}]{f.Level}[/]: {Markup.Escape(f.Title)}"));
+            var topFindings = res.Findings.OrderByDescending(f => f.Level).Take(5).ToList();
+            var contentBuilder = new System.Text.StringBuilder();
+
+            foreach (var f in topFindings)
+            {
+                contentBuilder.AppendLine($"- [{GetSeverityColor(f.Level)}]{f.Level}[/]: [bold]{Markup.Escape(f.Title)}[/] (Confidence: {f.Confidence})");
+                contentBuilder.AppendLine($"  [grey]{Markup.Escape(f.Description)}[/]");
+                
+                if (f.Evidence != null && f.Evidence.Count > 0)
+                {
+                    contentBuilder.AppendLine("  [underline]Evidence:[/]");
+                    foreach (var ev in f.Evidence)
+                    {
+                        contentBuilder.AppendLine($"    - [teal]{Markup.Escape(ev.Key)}[/]: {Markup.Escape(ev.Value)}");
+                    }
+                }
+                contentBuilder.AppendLine();
+            }
             
-            var panel = new Panel(content)
+            var panel = new Panel(contentBuilder.ToString().TrimEnd())
             {
                 Header = new PanelHeader($" {kvp.Key} (Score: {res.Score:F1}) ", Justify.Left),
                 Border = BoxBorder.Rounded,

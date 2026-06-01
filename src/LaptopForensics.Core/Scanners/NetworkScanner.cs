@@ -287,19 +287,25 @@ public class NetworkScanner : IScanModule
             }
 
             // 9. Scoring and Findings
-            var hasSuspicious = false;
             foreach (var conn in resultData.Connections)
             {
-                if (conn.RemoteAddress != "0.0.0.0" && conn.RemoteAddress != "127.0.0.1" && conn.RemoteAddress != "::1" && conn.State == "Established")
+                bool isExternal = conn.RemoteAddress != "0.0.0.0" && conn.RemoteAddress != "127.0.0.1" && conn.RemoteAddress != "::1";
+                bool isDangerousPort = conn.LocalPort == 4444 || conn.LocalPort == 1337 || conn.LocalPort == 31337;
+                
+                if (isExternal && conn.State == "Established" && isDangerousPort)
                 {
-                    // Simulated suspicious check (could be expanded)
+                    score -= 20;
+                    var evidence = new Dictionary<string, string>
+                    {
+                        { "Protocol", "TCP" },
+                        { "Port", conn.LocalPort.ToString() },
+                        { "Status", conn.State },
+                        { "Process", $"{conn.ProcessName} [PID: {conn.Pid}]" },
+                        { "Remote IP", conn.RemoteAddress },
+                        { "Action", $"taskkill /F /PID {conn.Pid}" }
+                    };
+                    findings.Add(new Finding { Level = Severity.Critical, Title = $"Suspicious outbound connection on port {conn.LocalPort}", Description = "Connection to potentially malicious external IP.", Recommendation = "Investigate the process making this connection immediately.", Confidence = ConfidenceLevel.High, Evidence = evidence });
                 }
-            }
-
-            if (hasSuspicious)
-            {
-                score -= 20;
-                findings.Add(new Finding { Level = Severity.Critical, Title = "Suspicious outbound connection", Description = "Connection to known malicious IP range", Recommendation = "Investigate the process making this connection immediately." });
             }
 
             bool firewallDisabled = false;
@@ -318,32 +324,66 @@ public class NetworkScanner : IScanModule
                 score -= 15;
             }
 
-            var smbOpen = resultData.Connections.Any(c => c.LocalPort == 445 && c.LocalAddress == "0.0.0.0" && c.State == "Listen") || resultData.ListeningPorts.Any(c => c.LocalPort == 445 && c.LocalAddress == "0.0.0.0");
-            if (smbOpen)
+            var smbOpen = resultData.Connections.Where(c => c.LocalPort == 445 && c.LocalAddress == "0.0.0.0" && c.State == "Listen").ToList();
+            foreach (var smb in smbOpen)
             {
                 score -= 15;
-                findings.Add(new Finding { Level = Severity.Warning, Title = "File sharing exposed", Description = "SMB open on all interfaces", Recommendation = "Disable SMB or restrict to local network." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Protocol", "TCP" },
+                    { "Port", "445" },
+                    { "Status", "LISTENING" },
+                    { "Process", $"{smb.ProcessName} [PID: {smb.Pid}]" },
+                    { "Exposure", "0.0.0.0 (All Interfaces)" },
+                    { "Action", "Disable SMBv1 or restrict to local network via Windows Firewall." }
+                };
+                findings.Add(new Finding { Level = Severity.Warning, Title = "SMB File sharing exposed", Description = "SMB open on all interfaces.", Recommendation = "Disable SMB or restrict to local network.", Confidence = ConfidenceLevel.Medium, Evidence = evidence });
             }
 
-            var rdpOpen = resultData.Connections.Any(c => c.LocalPort == 3389 && c.LocalAddress == "0.0.0.0" && c.State == "Listen") || resultData.ListeningPorts.Any(c => c.LocalPort == 3389 && c.LocalAddress == "0.0.0.0");
-            if (rdpOpen)
+            var rdpOpen = resultData.Connections.Where(c => c.LocalPort == 3389 && c.LocalAddress == "0.0.0.0" && c.State == "Listen").ToList();
+            foreach (var rdp in rdpOpen)
             {
                 score -= 10;
-                findings.Add(new Finding { Level = Severity.Warning, Title = "Remote Desktop exposed", Description = "RDP open on all interfaces", Recommendation = "Disable RDP or restrict to VPN/local network." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Protocol", "TCP" },
+                    { "Port", "3389" },
+                    { "Status", "LISTENING" },
+                    { "Process", $"{rdp.ProcessName} [PID: {rdp.Pid}]" },
+                    { "Exposure", "0.0.0.0 (All Interfaces)" },
+                    { "Action", "Disable RDP in System Properties or restrict to VPN." }
+                };
+                findings.Add(new Finding { Level = Severity.Warning, Title = "Remote Desktop exposed", Description = "RDP open on all interfaces.", Recommendation = "Disable RDP or restrict to VPN/local network.", Confidence = ConfidenceLevel.High, Evidence = evidence });
             }
 
-            var telnetOpen = resultData.Connections.Any(c => c.LocalPort == 23 && c.State == "Listen") || resultData.ListeningPorts.Any(c => c.LocalPort == 23);
-            if (telnetOpen)
+            var telnetOpen = resultData.Connections.Where(c => c.LocalPort == 23 && c.State == "Listen").ToList();
+            foreach (var telnet in telnetOpen)
             {
                 score -= 10;
-                findings.Add(new Finding { Level = Severity.Critical, Title = "Insecure protocol enabled", Description = "Telnet port 23 open externally", Recommendation = "Disable Telnet and use SSH." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Protocol", "TCP" },
+                    { "Port", "23" },
+                    { "Status", "LISTENING" },
+                    { "Process", $"{telnet.ProcessName} [PID: {telnet.Pid}]" },
+                    { "Action", "Disable Telnet Windows Feature." }
+                };
+                findings.Add(new Finding { Level = Severity.Critical, Title = "Insecure protocol enabled (Telnet)", Description = "Telnet port 23 open externally.", Recommendation = "Disable Telnet and use SSH.", Confidence = ConfidenceLevel.High, Evidence = evidence });
             }
 
-            var ftpOpen = resultData.Connections.Any(c => c.LocalPort == 21 && c.State == "Listen") || resultData.ListeningPorts.Any(c => c.LocalPort == 21);
-            if (ftpOpen)
+            var ftpOpen = resultData.Connections.Where(c => c.LocalPort == 21 && c.State == "Listen").ToList();
+            foreach (var ftp in ftpOpen)
             {
                 score -= 10;
-                findings.Add(new Finding { Level = Severity.Warning, Title = "Insecure FTP enabled", Description = "FTP port 21 open", Recommendation = "Disable FTP and use SFTP." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Protocol", "TCP" },
+                    { "Port", "21" },
+                    { "Status", "LISTENING" },
+                    { "Process", $"{ftp.ProcessName} [PID: {ftp.Pid}]" },
+                    { "Action", "Disable FTP service." }
+                };
+                findings.Add(new Finding { Level = Severity.Warning, Title = "Insecure FTP enabled", Description = "FTP port 21 open.", Recommendation = "Disable FTP and use SFTP.", Confidence = ConfidenceLevel.Medium, Evidence = evidence });
             }
 
             var ispDns = true;

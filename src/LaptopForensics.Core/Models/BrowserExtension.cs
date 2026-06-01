@@ -10,6 +10,9 @@ public class BrowserExtension
     public bool IsEnabled { get; set; }
     public List<string> Permissions { get; set; } = new();
     public RiskLevel Risk { get; set; }
+    public double RiskScore { get; set; }
+    public DateTime InstallDate { get; set; }
+    public string InstallPath { get; set; } = string.Empty;
 }
 
 public enum RiskLevel

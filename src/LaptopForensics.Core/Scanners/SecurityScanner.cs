@@ -277,51 +277,99 @@ public class SecurityScanner : IScanModule
             if (!resultData.Defender.RealTimeEnabled && !resultData.Antivirus.IsEnabled)
             {
                 score -= 30;
-                findings.Add(new Finding { Level = Severity.Critical, Title = "Real-time antivirus disabled", Description = "No active real-time protection was detected.", Recommendation = "Enable Windows Defender or a third-party antivirus." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Current State", "Disabled" },
+                    { "Expected", "Enabled" },
+                    { "Action", "Set-MpPreference -DisableRealtimeMonitoring $false" }
+                };
+                findings.Add(new Finding { Level = Severity.Critical, Title = "Real-time antivirus disabled", Description = "No active real-time protection was detected.", Recommendation = "Enable Windows Defender or a third-party antivirus.", Confidence = ConfidenceLevel.High, Evidence = evidence });
             }
 
             if (!resultData.Firewall.AllEnabled)
             {
                 score -= 25;
-                findings.Add(new Finding { Level = Severity.Critical, Title = "Firewall disabled", Description = "One or more firewall profiles are disabled.", Recommendation = "Enable all Windows Firewall profiles." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Current State", "One or more profiles disabled" },
+                    { "Expected", "Domain, Private, and Public profiles Enabled" },
+                    { "Action", "Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True" }
+                };
+                findings.Add(new Finding { Level = Severity.Critical, Title = "Firewall disabled", Description = "One or more firewall profiles are disabled.", Recommendation = "Enable all Windows Firewall profiles.", Confidence = ConfidenceLevel.High, Evidence = evidence });
             }
 
             var sigDate = resultData.Defender.SignatureDate ?? resultData.Antivirus.LastUpdateDate;
             if (sigDate.HasValue && sigDate.Value < DateTime.Now.AddDays(-7))
             {
                 score -= 20;
-                findings.Add(new Finding { Level = Severity.Warning, Title = "Antivirus definitions out of date", Description = "Definitions are older than 7 days.", Recommendation = "Update antivirus definitions." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Current State", $"Last updated on {sigDate.Value:yyyy-MM-dd}" },
+                    { "Expected", "Updated within last 7 days" },
+                    { "Action", "Update-MpSignature" }
+                };
+                findings.Add(new Finding { Level = Severity.Warning, Title = "Antivirus definitions out of date", Description = "Definitions are older than 7 days.", Recommendation = "Update antivirus definitions.", Confidence = ConfidenceLevel.High, Evidence = evidence });
             }
 
             if (!resultData.Uac.IsEnabled)
             {
                 score -= 15;
-                findings.Add(new Finding { Level = Severity.Critical, Title = "UAC completely disabled", Description = "User Account Control is disabled.", Recommendation = "Enable UAC in Windows settings." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Current State", "Disabled (EnableLUA = 0)" },
+                    { "Expected", "Enabled (EnableLUA = 1)" },
+                    { "Fix", @"reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v EnableLUA /t REG_DWORD /d 1 /f" }
+                };
+                findings.Add(new Finding { Level = Severity.Critical, Title = "UAC completely disabled", Description = "User Account Control is disabled.", Recommendation = "Enable UAC in Windows settings.", Confidence = ConfidenceLevel.High, Evidence = evidence });
             }
 
             var systemDrive = resultData.BitLocker.Drives.FirstOrDefault(d => d.DriveLetter.StartsWith("C", StringComparison.OrdinalIgnoreCase));
             if (systemDrive != null && !systemDrive.IsEncrypted)
             {
                 score -= 15;
-                findings.Add(new Finding { Level = Severity.Warning, Title = "System drive not encrypted", Description = "BitLocker is not enabled on the system drive.", Recommendation = "Enable BitLocker on drive C:." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Current State", $"Drive {systemDrive.DriveLetter} Unencrypted" },
+                    { "Expected", "FullyEncrypted" },
+                    { "Fix", $"manage-bde -on {systemDrive.DriveLetter}" }
+                };
+                findings.Add(new Finding { Level = Severity.Warning, Title = "System drive not encrypted", Description = "BitLocker is not enabled on the system drive.", Recommendation = "Enable BitLocker on drive C:.", Confidence = ConfidenceLevel.High, Evidence = evidence });
             }
 
             if (resultData.WindowsUpdates.PendingUpdates > 10)
             {
                 score -= 10;
-                findings.Add(new Finding { Level = Severity.Warning, Title = "Pending Windows Updates", Description = $"{resultData.WindowsUpdates.PendingUpdates} updates are pending.", Recommendation = "Install pending Windows updates." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Current State", $"{resultData.WindowsUpdates.PendingUpdates} updates pending" },
+                    { "Expected", "0 updates pending" },
+                    { "Fix", "Settings -> Windows Update -> Check for updates" }
+                };
+                findings.Add(new Finding { Level = Severity.Warning, Title = "Pending Windows Updates", Description = $"{resultData.WindowsUpdates.PendingUpdates} updates are pending.", Recommendation = "Install pending Windows updates.", Confidence = ConfidenceLevel.Medium, Evidence = evidence });
             }
 
             if (resultData.SecureBoot.IsEnabled.HasValue && !resultData.SecureBoot.IsEnabled.Value)
             {
                 score -= 10;
-                findings.Add(new Finding { Level = Severity.Warning, Title = "SecureBoot disabled", Description = "SecureBoot is supported but disabled.", Recommendation = "Enable SecureBoot in BIOS/UEFI settings." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Current State", "Disabled" },
+                    { "Expected", "Enabled" },
+                    { "Fix", "Reboot to BIOS/UEFI and enable SecureBoot." }
+                };
+                findings.Add(new Finding { Level = Severity.Warning, Title = "SecureBoot disabled", Description = "SecureBoot is supported but disabled.", Recommendation = "Enable SecureBoot in BIOS/UEFI settings.", Confidence = ConfidenceLevel.High, Evidence = evidence });
             }
 
             if (resultData.Defender.LastScanDate.HasValue && resultData.Defender.LastScanDate.Value < DateTime.Now.AddDays(-7))
             {
                 score -= 5;
-                findings.Add(new Finding { Level = Severity.Info, Title = "No recent antivirus scan", Description = "Last scan was more than 7 days ago.", Recommendation = "Run a quick scan." });
+                var evidence = new Dictionary<string, string>
+                {
+                    { "Current State", $"Last scan on {resultData.Defender.LastScanDate.Value:yyyy-MM-dd}" },
+                    { "Expected", "Scanned within last 7 days" },
+                    { "Action", "Start-MpScan -ScanType QuickScan" }
+                };
+                findings.Add(new Finding { Level = Severity.Info, Title = "No recent antivirus scan", Description = "Last scan was more than 7 days ago.", Recommendation = "Run a quick scan.", Confidence = ConfidenceLevel.Medium, Evidence = evidence });
             }
 
             score = Math.Max(0, score);

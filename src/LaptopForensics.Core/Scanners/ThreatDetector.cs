@@ -16,6 +16,7 @@ namespace LaptopForensics.Core.Scanners;
 public class ThreatDetector : IScanModule
 {
     private readonly IRegistryService _registry;
+    private readonly IWmiService _wmi;
     private readonly ILogger<ThreatDetector> _logger;
 
     public string ModuleName => "ThreatDetector";
@@ -23,13 +24,14 @@ public class ThreatDetector : IScanModule
     public int EstimatedSeconds => 5;
     public ScanMode ApplicableModes => ScanMode.Full | ScanMode.Quick;
 
-    public ThreatDetector(IRegistryService registry, ILogger<ThreatDetector> logger)
+    public ThreatDetector(IRegistryService registry, IWmiService wmi, ILogger<ThreatDetector> logger)
     {
         _registry = registry;
+        _wmi = wmi;
         _logger = logger;
     }
 
-    public Task<ModuleResult> ExecuteAsync(CancellationToken ct)
+    public async Task<ModuleResult> ExecuteAsync(CancellationToken ct)
     {
         var resultData = new ThreatScanResult();
         var globalFindings = new List<Finding>();
@@ -38,38 +40,49 @@ public class ThreatDetector : IScanModule
 
         try
         {
-            // 1. Process Blacklist
+            // 1. Process Scanning with WMI for Deep Paths
             var maliciousProcesses = new[] { "minerd", "xmrig", "nc", "ncat", "psexec", "mimikatz", "wannacry", "notpetya", "pwdump" };
             try
             {
-                var processes = Process.GetProcesses();
+                var processes = await Task.Run(() => _wmi.Query("SELECT ProcessId, Name, ExecutablePath FROM Win32_Process"));
                 foreach (var process in processes)
                 {
                     if (ct.IsCancellationRequested) break;
                     
-                    try
+                    var name = (process.GetValueOrDefault("Name")?.ToString() ?? "").ToLowerInvariant();
+                    var pid = process.GetValueOrDefault("ProcessId")?.ToString() ?? "Unknown";
+                    var path = process.GetValueOrDefault("ExecutablePath")?.ToString() ?? "";
+
+                    bool isMaliciousName = maliciousProcesses.Any(m => name.Contains(m));
+                    bool isSuspiciousLocation = !string.IsNullOrEmpty(path) && (path.Contains(@"\Temp\", StringComparison.OrdinalIgnoreCase) || path.Contains(@"\AppData\", StringComparison.OrdinalIgnoreCase) || path.Contains(@"\Downloads\", StringComparison.OrdinalIgnoreCase));
+
+                    if (isMaliciousName || (isSuspiciousLocation && (name.Contains("svchost") || name.Contains("explorer") || name.Contains("winlogon"))))
                     {
-                        var name = process.ProcessName.ToLowerInvariant();
-                        if (maliciousProcesses.Any(m => name.Contains(m)))
+                        var evidence = new Dictionary<string, string>
                         {
-                            resultData.Threats.Add(new ThreatFinding
-                            {
-                                Name = process.ProcessName,
-                                Type = "Process",
-                                Detail = $"Suspicious process found running with PID {process.Id}",
-                                Severity = Severity.Critical
-                            });
-                        }
-                    }
-                    catch
-                    {
-                        // Ignore access denied on specific processes
+                            { "PID", pid },
+                            { "Path", string.IsNullOrEmpty(path) ? "Access Denied" : path },
+                            { "Reason", isMaliciousName ? "Process name matches known malware blacklist." : "Legitimate Windows process name running from a suspicious user directory (Process Spoofing)." },
+                            { "Expected", isSuspiciousLocation ? @"C:\Windows\System32\" + name : "N/A" },
+                            { "Action", $"taskkill /F /PID {pid}" }
+                        };
+
+                        globalFindings.Add(new Finding 
+                        { 
+                            Level = Severity.Critical, 
+                            Title = name, 
+                            Description = "Malware or Process Spoofing Detected.", 
+                            Recommendation = "Investigate the executable path immediately and terminate if malicious.",
+                            Confidence = ConfidenceLevel.High,
+                            Evidence = evidence
+                        });
+                        score -= 20;
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to scan processes for threats");
+                _logger.LogWarning(ex, "Failed to scan processes for threats via WMI");
             }
 
             // 2. Hosts File
@@ -210,7 +223,7 @@ public class ThreatDetector : IScanModule
             score = Math.Max(0, score);
             stopwatch.Stop();
 
-            return Task.FromResult(new ModuleResult
+            return new ModuleResult
             {
                 ModuleName = ModuleName,
                 Success = true,
@@ -219,13 +232,13 @@ public class ThreatDetector : IScanModule
                 Findings = globalFindings,
                 Data = resultData,
                 DurationMs = stopwatch.ElapsedMilliseconds
-            });
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "ThreatDetector failed entirely.");
             stopwatch.Stop();
-            return Task.FromResult(new ModuleResult
+            return new ModuleResult
             {
                 ModuleName = ModuleName,
                 Success = false,
@@ -235,7 +248,7 @@ public class ThreatDetector : IScanModule
                 Data = new ThreatScanResult(),
                 DurationMs = stopwatch.ElapsedMilliseconds,
                 ErrorMessage = ex.Message
-            });
+            };
         }
     }
 }

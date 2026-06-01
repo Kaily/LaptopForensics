@@ -23,7 +23,8 @@ public class JsonExporter : IExporter
         {
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            ReferenceHandler = ReferenceHandler.Preserve
+            ReferenceHandler = ReferenceHandler.IgnoreCycles,
+            Converters = { new JsonStringEnumConverter() }
         };
 
         await using var stream = File.Create(filepath);

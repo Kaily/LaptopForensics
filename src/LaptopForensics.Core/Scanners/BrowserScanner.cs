@@ -84,28 +84,45 @@ public class BrowserScanner : IScanModule
             }
             resultData = uniqueExts;
 
-            // 5. Calculate score and findings
-            int highRiskCount = 0;
-            int medRiskCount = 0;
-
             foreach (var ext in resultData)
             {
-                if (ext.Risk == RiskLevel.High)
+                var evidence = new Dictionary<string, string>
                 {
-                    highRiskCount++;
-                    score -= 10; // -10 per high risk
-                    findings.Add(new Finding { Level = Severity.Critical, Title = "High risk browser extension", Description = $"Extension '{ext.Name}' ({ext.BrowserName}) has high-risk permissions.", Recommendation = "Review and remove if unnecessary." });
-                }
-                else if (ext.Risk == RiskLevel.Medium)
-                {
-                    medRiskCount++;
-                    score -= 5; // -5 per medium risk
-                }
-            }
+                    { "Extension ID", ext.ExtensionId },
+                    { "Version", ext.Version },
+                    { "Install Date", ext.InstallDate.ToString("yyyy-MM-dd") },
+                    { "Path", ext.InstallPath },
+                    { "Permissions", string.Join(", ", ext.Permissions) },
+                    { "Risk Score", $"{ext.RiskScore:F1}/10" },
+                    { "Action", $"Remove extension manually from {ext.BrowserName} or delete folder: {ext.InstallPath}" }
+                };
 
-            if (medRiskCount > 0)
-            {
-                findings.Add(new Finding { Level = Severity.Warning, Title = "Medium risk browser extensions", Description = $"Found {medRiskCount} extensions with medium-risk permissions.", Recommendation = "Review for necessity." });
+                if (ext.RiskScore >= 7.0 || ext.Risk == RiskLevel.High)
+                {
+                    score -= 10;
+                    findings.Add(new Finding 
+                    { 
+                        Level = Severity.Critical, 
+                        Title = $"{ext.BrowserName} Extension: \"{ext.Name}\" v{ext.Version}", 
+                        Description = "High risk permissions detected.", 
+                        Recommendation = "Immediate removal recommended due to dangerous permissions.",
+                        Confidence = ConfidenceLevel.High,
+                        Evidence = evidence
+                    });
+                }
+                else if (ext.RiskScore >= 4.0 || ext.Risk == RiskLevel.Medium)
+                {
+                    score -= 5;
+                    findings.Add(new Finding 
+                    { 
+                        Level = Severity.Warning, 
+                        Title = $"{ext.BrowserName} Extension: \"{ext.Name}\" v{ext.Version}", 
+                        Description = "Medium risk permissions detected.", 
+                        Recommendation = "Review permissions for necessity.",
+                        Confidence = ConfidenceLevel.Medium,
+                        Evidence = evidence
+                    });
+                }
             }
 
             score = Math.Max(0, score);
@@ -157,7 +174,8 @@ public class BrowserScanner : IScanModule
                     var manifestPath = Path.Combine(latestVersionDir, "manifest.json");
                     if (File.Exists(manifestPath))
                     {
-                        ParseManifest(manifestPath, browserName, extId, results);
+                        var installDate = Directory.GetCreationTime(extDir);
+                        ParseManifest(manifestPath, browserName, extId, installDate, extDir, results);
                     }
                 }
             }
@@ -168,7 +186,7 @@ public class BrowserScanner : IScanModule
         }
     }
 
-    private void ParseManifest(string manifestPath, string browserName, string extId, List<BrowserExtension> results)
+    private void ParseManifest(string manifestPath, string browserName, string extId, DateTime installDate, string installPath, List<BrowserExtension> results)
     {
         try
         {
@@ -198,6 +216,8 @@ public class BrowserScanner : IScanModule
                 }
             }
 
+            var (riskLevel, riskScore) = DetermineRisk(permissions, installDate);
+
             var ext = new BrowserExtension
             {
                 BrowserName = browserName,
@@ -207,7 +227,10 @@ public class BrowserScanner : IScanModule
                 Description = description,
                 IsEnabled = true, // We assume enabled if it's in the directory, though preferences file dictates actual state
                 Permissions = permissions,
-                Risk = DetermineRisk(permissions)
+                Risk = riskLevel,
+                RiskScore = riskScore,
+                InstallDate = installDate,
+                InstallPath = installPath
             };
 
             results.Add(ext);
@@ -218,21 +241,33 @@ public class BrowserScanner : IScanModule
         }
     }
 
-    private RiskLevel DetermineRisk(List<string> permissions)
+    private (RiskLevel, double) DetermineRisk(List<string> permissions, DateTime installDate)
     {
-        var highRisk = new[] { "tabs", "history", "cookies", "passwords", "<all_urls>", "debugger", "proxy", "webRequestBlocking", "nativeMessaging", "management" };
-        var medRisk = new[] { "webRequest", "webNavigation", "downloads" };
+        double score = 0.0;
 
-        if (permissions.Any(p => highRisk.Contains(p, StringComparer.OrdinalIgnoreCase)))
+        bool hasTabs = permissions.Contains("tabs", StringComparer.OrdinalIgnoreCase);
+        bool hasHistory = permissions.Contains("history", StringComparer.OrdinalIgnoreCase);
+        bool hasWebRequest = permissions.Contains("webRequest", StringComparer.OrdinalIgnoreCase) || permissions.Contains("webRequestBlocking", StringComparer.OrdinalIgnoreCase);
+        bool hasAllUrls = permissions.Contains("<all_urls>", StringComparer.OrdinalIgnoreCase) || permissions.Contains("*://*/*", StringComparer.OrdinalIgnoreCase);
+
+        if (hasAllUrls || (hasTabs && hasHistory && hasWebRequest))
         {
-            return RiskLevel.High;
+            score += 3.0;
         }
 
-        if (permissions.Any(p => medRisk.Contains(p, StringComparer.OrdinalIgnoreCase)))
+        if (permissions.Contains("passwords", StringComparer.OrdinalIgnoreCase)) score += 2.5;
+        if (hasHistory) score += 2.0;
+        if (hasWebRequest) score += 1.5;
+
+        if (installDate > DateTime.Now.AddDays(-7))
         {
-            return RiskLevel.Medium;
+            score += 1.0;
         }
 
-        return RiskLevel.Low;
+        RiskLevel level = RiskLevel.Low;
+        if (score >= 7.0) level = RiskLevel.High;
+        else if (score >= 4.0) level = RiskLevel.Medium;
+
+        return (level, Math.Min(10.0, score));
     }
 }

@@ -342,50 +342,61 @@ public class UserScanner : IScanModule
 
         if (data.Accounts.Any(a => a.IsEnabled && a.Name.Equals("Guest", StringComparison.OrdinalIgnoreCase)))
         {
-            findings.Add(CreateFinding(Severity.Critical, "Guest account is a security risk", "The Guest account is enabled.", "Disable the Guest account."));
+            var evidence = new Dictionary<string, string> { { "Account", "Guest" }, { "Status", "Enabled" }, { "Action", "net user Guest /active:no" } };
+            findings.Add(CreateFinding(Severity.Critical, "Guest account is a security risk", "The Guest account is enabled.", "Disable the Guest account.", ConfidenceLevel.High, evidence));
         }
 
         foreach (var account in data.Accounts.Where(a => a.FailedLoginCount30Days >= 10))
         {
-            findings.Add(CreateFinding(Severity.Critical, "Possible brute force attempt", $"{account.Name} has {account.FailedLoginCount30Days} failed logins in 30 days.", "Review Security log events and reset the password if needed."));
+            var evidence = new Dictionary<string, string> { { "Account", account.Name }, { "Failed Logins (30d)", account.FailedLoginCount30Days.ToString() }, { "Action", "Review Security Event Logs (Event ID 4625)." } };
+            findings.Add(CreateFinding(Severity.Critical, "Possible brute force attempt", $"{account.Name} has {account.FailedLoginCount30Days} failed logins in 30 days.", "Review Security log events and reset the password if needed.", ConfidenceLevel.High, evidence));
         }
 
         foreach (var account in data.Accounts.Where(a => a.IsEnabled && a.LastLogin < DateTime.Now.AddDays(-90)))
         {
-            findings.Add(CreateFinding(Severity.Warning, $"Inactive account: {account.Name}", "Enabled account has not logged in for 90+ days.", "Disable or remove stale accounts."));
+            var evidence = new Dictionary<string, string> { { "Account", account.Name }, { "Last Login", account.LastLogin?.ToString("yyyy-MM-dd") ?? "Never" }, { "Action", $"net user {account.Name} /active:no" } };
+            findings.Add(CreateFinding(Severity.Warning, $"Inactive account: {account.Name}", "Enabled account has not logged in for 90+ days.", "Disable or remove stale accounts.", ConfidenceLevel.Medium, evidence));
         }
 
         foreach (var account in data.Accounts.Where(a => a.PasswordNeverExpires))
         {
-            findings.Add(CreateFinding(Severity.Warning, $"Account {account.Name} has no password expiry", "Password expiry is disabled for this account.", "Enable normal password rotation unless there is an approved exception."));
+            var evidence = new Dictionary<string, string> { { "Account", account.Name }, { "Setting", "PasswordNeverExpires=True" }, { "Action", $"wmic useraccount where name='{account.Name}' set PasswordExpires=True" } };
+            findings.Add(CreateFinding(Severity.Warning, $"Account {account.Name} has no password expiry", "Password expiry is disabled for this account.", "Enable normal password rotation unless there is an approved exception.", ConfidenceLevel.High, evidence));
         }
 
         if (data.Accounts.Any(a => a.IsEnabled && a.Sid.EndsWith("-500", StringComparison.OrdinalIgnoreCase)))
         {
-            findings.Add(CreateFinding(Severity.Warning, "Built-in Administrator account is active", "The built-in Administrator account is enabled.", "Disable it or strictly restrict its use."));
+            var admin = data.Accounts.First(a => a.Sid.EndsWith("-500", StringComparison.OrdinalIgnoreCase));
+            var evidence = new Dictionary<string, string> { { "Account", admin.Name }, { "SID", admin.Sid }, { "Status", "Enabled" }, { "Action", $"net user {admin.Name} /active:no" } };
+            findings.Add(CreateFinding(Severity.Warning, "Built-in Administrator account is active", "The built-in Administrator account is enabled.", "Disable it or strictly restrict its use.", ConfidenceLevel.High, evidence));
         }
 
         if (data.AdminAccounts > 2)
         {
-            findings.Add(CreateFinding(Severity.Info, "Multiple admin accounts detected", $"{data.AdminAccounts} local admin accounts were found.", "Review local administrator membership."));
+            var admins = data.Accounts.Where(a => a.IsAdmin).Select(a => a.Name).ToList();
+            var evidence = new Dictionary<string, string> { { "Admin Count", data.AdminAccounts.ToString() }, { "Accounts", string.Join(", ", admins) }, { "Action", "Remove unnecessary users from Local Administrators group." } };
+            findings.Add(CreateFinding(Severity.Info, "Multiple admin accounts detected", $"{data.AdminAccounts} local admin accounts were found.", "Review local administrator membership.", ConfidenceLevel.Medium, evidence));
         }
 
         foreach (var account in data.Accounts.Where(a => a.ProfileSizeBytes > 0 && a.LastLogin < DateTime.Now.AddDays(-90)))
         {
-            findings.Add(CreateFinding(Severity.Info, $"Unused profile: {account.Name}, {Helpers.SizeFormatter.FormatBytes(account.ProfileSizeBytes)}", "Old user profile data exists on disk.", "Archive or remove unused profile data if no longer required."));
+            var evidence = new Dictionary<string, string> { { "Account", account.Name }, { "Profile Size", Helpers.SizeFormatter.FormatBytes(account.ProfileSizeBytes) }, { "Last Login", account.LastLogin?.ToString("yyyy-MM-dd") ?? "Never" }, { "Action", "Delete profile via Advanced System Settings -> User Profiles." } };
+            findings.Add(CreateFinding(Severity.Info, $"Unused profile: {account.Name}, {Helpers.SizeFormatter.FormatBytes(account.ProfileSizeBytes)}", "Old user profile data exists on disk.", "Archive or remove unused profile data if no longer required.", ConfidenceLevel.Medium, evidence));
         }
 
         return findings;
     }
 
-    private static Finding CreateFinding(Severity severity, string title, string description, string recommendation)
+    private static Finding CreateFinding(Severity severity, string title, string description, string recommendation, ConfidenceLevel confidence = ConfidenceLevel.Medium, Dictionary<string, string>? evidence = null)
     {
         return new Finding
         {
             Level = severity,
             Title = title,
             Description = description,
-            Recommendation = recommendation
+            Recommendation = recommendation,
+            Confidence = confidence,
+            Evidence = evidence ?? new Dictionary<string, string>()
         };
     }
 
@@ -399,7 +410,7 @@ public class UserScanner : IScanModule
             Grade = "POOR",
             Findings = new List<Finding>
             {
-                CreateFinding(Severity.Warning, "User scan incomplete", message, "Run the application as administrator and verify WMI/Event Log access.")
+                CreateFinding(Severity.Warning, "User scan incomplete", message, "Run the application as administrator and verify WMI/Event Log access.", ConfidenceLevel.Low, new Dictionary<string, string> { { "Error", message } })
             },
             Data = data,
             DurationMs = ElapsedMs(started),

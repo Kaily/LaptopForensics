@@ -31,7 +31,7 @@ public class Program
         bool isSilent = args.Contains("--silent");
         bool isWatch = args.Contains("--watch");
         
-        string moduleName = GetArgValue(args, "--module");
+        string? moduleName = GetArgValue(args, "--module");
         string exportFormat = GetArgValue(args, "--export") ?? "console";
         string outputPath = GetArgValue(args, "--output") ?? Path.Combine(Directory.GetCurrentDirectory(), "Reports");
         int watchIntervalMin = int.TryParse(GetArgValue(args, "--interval"), out var val) ? val : 60;

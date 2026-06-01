@@ -167,6 +167,16 @@ public class Program
         finally
         {
             Log.CloseAndFlush();
+            if (!isSilent && !System.Console.IsInputRedirected)
+            {
+                AnsiConsole.WriteLine();
+                AnsiConsole.MarkupLine("[grey]Press Enter to exit...[/]");
+                while (System.Console.KeyAvailable) 
+                { 
+                    System.Console.ReadKey(true); 
+                }
+                System.Console.ReadLine();
+            }
         }
     }
 

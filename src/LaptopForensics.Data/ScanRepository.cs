@@ -1,4 +1,4 @@
-using System.Data.SQLite;
+using Microsoft.Data.Sqlite;
 using LaptopForensics.Core.Interfaces;
 using LaptopForensics.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -133,7 +133,7 @@ public class ScanRepository : IScanRepository
         }
     }
 
-    private static async Task<List<ScanHistory>> ReadManyAsync(SQLiteCommand command)
+    private static async Task<List<ScanHistory>> ReadManyAsync(SqliteCommand command)
     {
         var records = new List<ScanHistory>();
         using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
@@ -165,7 +165,7 @@ public class ScanRepository : IScanRepository
         return DateTime.TryParse(raw, out var parsed) ? parsed : DateTime.MinValue;
     }
 
-    private static void AddParameter(SQLiteCommand command, string name, object? value)
+    private static void AddParameter(SqliteCommand command, string name, object? value)
     {
         command.Parameters.AddWithValue(name, value ?? DBNull.Value);
     }

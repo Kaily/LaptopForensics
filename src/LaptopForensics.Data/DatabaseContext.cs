@@ -1,4 +1,4 @@
-using System.Data.SQLite;
+using Microsoft.Data.Sqlite;
 using LaptopForensics.Core.Models;
 using Microsoft.Extensions.Options;
 
@@ -47,9 +47,9 @@ public sealed class DatabaseContext : IDisposable
         command.ExecuteNonQuery();
     }
 
-    public SQLiteConnection GetConnection()
+    public SqliteConnection GetConnection()
     {
-        var connection = new SQLiteConnection($"Data Source={_databasePath};Version=3;");
+        var connection = new SqliteConnection($"Data Source={_databasePath};");
         connection.Open();
         return connection;
     }

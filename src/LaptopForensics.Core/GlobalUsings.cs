@@ -1,0 +1,9 @@
+global using System;
+global using System.Collections.Generic;
+global using System.IO;
+global using System.Linq;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using LaptopForensics.Core.Interfaces;
+global using LaptopForensics.Core.Models;
+global using Microsoft.Extensions.Logging;

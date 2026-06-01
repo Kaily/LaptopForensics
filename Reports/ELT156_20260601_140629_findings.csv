@@ -1,0 +1,36 @@
+﻿Module,Severity,Title,Description,Recommendation
+SecurityScanner,Critical,Firewall disabled,One or more firewall profiles are disabled.,Enable all Windows Firewall profiles.
+BrowserScanner,Critical,High risk browser extension,Extension 'ColorZilla' (Chrome) has high-risk permissions.,Review and remove if unnecessary.
+BrowserScanner,Critical,High risk browser extension,Extension 'ckejmhbmlajgoklhgbapkiccekfoccmk' (Chrome) has high-risk permissions.,Review and remove if unnecessary.
+BrowserScanner,Critical,High risk browser extension,Extension 'Claude' (Chrome) has high-risk permissions.,Review and remove if unnecessary.
+BrowserScanner,Critical,High risk browser extension,Extension 'JSON Viewer' (Chrome) has high-risk permissions.,Review and remove if unnecessary.
+BrowserScanner,Critical,High risk browser extension,Extension 'Yeastar Linkus for Google' (Chrome) has high-risk permissions.,Review and remove if unnecessary.
+BrowserScanner,Critical,High risk browser extension,Extension 'efaidnbmnnnibpcajpcglclefindmkaj' (Chrome) has high-risk permissions.,Review and remove if unnecessary.
+BrowserScanner,Critical,High risk browser extension,Extension 'ColorZilla' (Edge) has high-risk permissions.,Review and remove if unnecessary.
+BrowserScanner,Critical,High risk browser extension,Extension 'JSON Viewer' (Edge) has high-risk permissions.,Review and remove if unnecessary.
+BrowserScanner,Critical,High risk browser extension,Extension 'Yeastar Linkus for Google' (Edge) has high-risk permissions.,Review and remove if unnecessary.
+BrowserScanner,Critical,High risk browser extension,Extension 'mlikepnkghhlnkgeejmlkfeheihlehne' (Edge) has high-risk permissions.,Review and remove if unnecessary.
+ThreatDetector,Critical,StartMenuExperienceHost,Suspicious process found running with PID 22676,Immediate investigation required.
+ThreatDetector,Critical,ShellExperienceHost,Suspicious process found running with PID 21812,Immediate investigation required.
+ThreatDetector,Critical,AdobeCollabSync,Suspicious process found running with PID 12168,Immediate investigation required.
+ThreatDetector,Critical,AdobeCollabSync,Suspicious process found running with PID 17640,Immediate investigation required.
+ThreatDetector,Critical,ServiceHub.RoslynCodeAnalysisService,Suspicious process found running with PID 15612,Immediate investigation required.
+ThreatDetector,Critical,ServiceHub.RoslynCodeAnalysisService,Suspicious process found running with PID 22128,Immediate investigation required.
+HardwareScanner,Warning,High memory usage,RAM usage is 88.1%.,Close unused applications or consider adding memory.
+UserScanner,Warning,Inactive account: ELT156,Enabled account has not logged in for 90+ days.,Disable or remove stale accounts.
+UserScanner,Warning,Account CodexSandboxOffline has no password expiry,Password expiry is disabled for this account.,Enable normal password rotation unless there is an approved exception.
+UserScanner,Warning,Account CodexSandboxOnline has no password expiry,Password expiry is disabled for this account.,Enable normal password rotation unless there is an approved exception.
+UserScanner,Warning,Account DefaultAccount has no password expiry,Password expiry is disabled for this account.,Enable normal password rotation unless there is an approved exception.
+UserScanner,Warning,Account ELT156 has no password expiry,Password expiry is disabled for this account.,Enable normal password rotation unless there is an approved exception.
+UserScanner,Warning,Account Guest has no password expiry,Password expiry is disabled for this account.,Enable normal password rotation unless there is an approved exception.
+UserScanner,Warning,Account VUSR_ELT156 has no password expiry,Password expiry is disabled for this account.,Enable normal password rotation unless there is an approved exception.
+UserScanner,Warning,Built-in Administrator account is active,The built-in Administrator account is enabled.,Disable it or strictly restrict its use.
+SecurityScanner,Warning,System drive not encrypted,BitLocker is not enabled on the system drive.,Enable BitLocker on drive C:.
+SecurityScanner,Warning,SecureBoot disabled,SecureBoot is supported but disabled.,Enable SecureBoot in BIOS/UEFI settings.
+StartupScanner,Warning,Bloatware in startup,Found 1 bloatware items launching at startup.,Disable unnecessary startup applications.
+ThreatDetector,Warning,Listening Port 3389,Port 3389 (RDP (Remote Desktop)) is listening on 0.0.0.0,Review to ensure this is intentional or safe.
+ThreatDetector,Warning,Listening Port 3389,Port 3389 (RDP (Remote Desktop)) is listening on ::,Review to ensure this is intentional or safe.
+ThreatDetector,Warning,System32 Modifications,Found 1943 executables/DLLs modified in the last 7 days in System32.,Review to ensure this is intentional or safe.
+SoftwareScanner,Info,Cluttered system,Total applications installed: 431,Consider uninstalling unused applications.
+SoftwareScanner,Info,Bloatware detected,Found 1 bloatware applications.,Consider uninstalling OEM bloatware for better performance.
+StartupScanner,Info,Many startup items,There are 111 items configured to run at startup.,Reduce the number of startup items to improve boot time.
